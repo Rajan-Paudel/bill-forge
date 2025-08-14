@@ -53,7 +53,18 @@ export const useLocalStorage = () => {
 
   // Save current state to history (localStorage only)
   const saveToHistory = (historyItem, historyData) => {
-    const updatedHistory = [historyItem, ...historyData];
+    // Check if an item with the same sessionId already exists
+    const existingIndex = historyData.findIndex(item => item.sessionId === historyItem.sessionId);
+    
+    let updatedHistory;
+    if (existingIndex !== -1) {
+      // Update existing item
+      updatedHistory = [...historyData];
+      updatedHistory[existingIndex] = historyItem;
+    } else {
+      // Add new item at the beginning
+      updatedHistory = [historyItem, ...historyData];
+    }
 
     try {
       localStorage.setItem("billReportHistory", JSON.stringify(updatedHistory));

@@ -16,12 +16,22 @@ import {
   LoadJSONModal,
   ClearAllDataModal,
   RemoveOptionModal,
+  SaveModal,
+  DuplicateSessionModal,
+  SaveConfirmationModal,
+  CurrencyModal,
+  NoAttachmentsModal,
 } from './components';
 
 // Hooks
 import { usePDFGeneration, useLocalStorage } from './hooks';
 
+// Utilities
+import { generateSessionId, generateBillId, generateHistoryId } from './utils/idGenerator';
+import { detectCurrencyFromBrowser } from './utils/currencyDetection';
+
 function App() {
+  const [sessionId, setSessionId] = useState(null);
   const [bills, setBills] = useState([]);
   const [reportTitle, setReportTitle] = useState("Monthly Bill Report");
   const [showDateRange, setShowDateRange] = useState(false);
@@ -54,6 +64,19 @@ function App() {
   const [showClearAllModal, setShowClearAllModal] = useState(false);
   const [showRemoveOptionModal, setShowRemoveOptionModal] = useState(false);
   const [optionToRemove, setOptionToRemove] = useState(null);
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+  const [duplicateItem, setDuplicateItem] = useState(null);
+  const [pendingJsonData, setPendingJsonData] = useState(null);
+  const [showSaveConfirmModal, setShowSaveConfirmModal] = useState(false);
+  const [existingSaveItem, setExistingSaveItem] = useState(null);
+  const [showCurrencyModal, setShowCurrencyModal] = useState(false);
+  const [showNoAttachmentsModal, setShowNoAttachmentsModal] = useState(false);
+  const [currentCurrency, setCurrentCurrency] = useState({
+    code: 'INR',
+    symbol: '₹',
+    name: 'Indian Rupee'
+  });
 
   // Custom hooks
   const { createPDF } = usePDFGeneration();
@@ -114,6 +137,7 @@ function App() {
     const loadAutoSavedStateData = () => {
       const state = loadAutoSavedState();
       if (state) {
+        setSessionId(state.sessionId || generateSessionId());
         setBills(state.bills || []);
         setReportTitle(state.reportTitle || "Monthly Bill Report");
         setShowDateRange(state.showDateRange || false);
@@ -129,16 +153,24 @@ function App() {
           ]
         );
 
+        // Load currency from auto-saved state if available
+        if (state.currentCurrency) {
+          setCurrentCurrency(state.currentCurrency);
+        }
+
         setShowSessionRestored(true);
         setTimeout(() => setShowSessionRestored(false), 3000);
 
         console.log("Auto-saved state loaded successfully:", {
+          sessionId: state.sessionId,
           bills: state.bills?.length || 0,
           reportTitle: state.reportTitle,
           lastAutoSave: state.lastAutoSave,
         });
       } else {
-        console.log("No auto-saved state found - starting with clean slate");
+        const newSessionId = generateSessionId();
+        setSessionId(newSessionId);
+        console.log("No auto-saved state found - starting with clean slate, sessionId:", newSessionId);
       }
     };
 
@@ -152,10 +184,11 @@ function App() {
 
   // Auto-save state whenever it changes (but not on initial load)
   useEffect(() => {
-    if (!isInitialLoad) {
+    if (!isInitialLoad && sessionId) {
       try {
         const timestamp = new Date().toISOString();
         const currentState = {
+          sessionId,
           bills,
           reportTitle,
           showDateRange,
@@ -163,6 +196,7 @@ function App() {
           // selectedFiles excluded - don't persist attachments
           sortConfig,
           selectableOptions,
+          currentCurrency,
           lastAutoSave: timestamp,
         };
         localStorage.setItem("billReportAutoSave", JSON.stringify(currentState));
@@ -171,6 +205,7 @@ function App() {
       }
     }
   }, [
+    sessionId,
     bills,
     reportTitle,
     showDateRange,
@@ -178,6 +213,7 @@ function App() {
     // selectedFiles removed from dependencies - don't trigger auto-save
     sortConfig,
     selectableOptions,
+    currentCurrency,
     isInitialLoad,
   ]);
 
@@ -187,6 +223,48 @@ function App() {
     setDarkMode(savedDarkMode);
     if (savedDarkMode) {
       document.documentElement.classList.add("dark");
+    }
+  }, []);
+
+  // Currency initialization and persistence
+  useEffect(() => {
+    try {
+      const savedCurrency = localStorage.getItem("selectedCurrency");
+      if (savedCurrency) {
+        try {
+          const parsedCurrency = JSON.parse(savedCurrency);
+          if (parsedCurrency && parsedCurrency.code && parsedCurrency.symbol) {
+            setCurrentCurrency(parsedCurrency);
+          } else {
+            throw new Error("Invalid currency data");
+          }
+        } catch (error) {
+          console.error("Failed to load saved currency:", error);
+          // Fallback to browser detection if saved currency is invalid
+          try {
+            const detectedCurrency = detectCurrencyFromBrowser();
+            setCurrentCurrency(detectedCurrency);
+            localStorage.setItem("selectedCurrency", JSON.stringify(detectedCurrency));
+          } catch (detectionError) {
+            console.error("Currency detection failed:", detectionError);
+            // Ultimate fallback - keep default INR
+          }
+        }
+      } else {
+        // No saved currency, detect from browser
+        try {
+          const detectedCurrency = detectCurrencyFromBrowser();
+          setCurrentCurrency(detectedCurrency);
+          localStorage.setItem("selectedCurrency", JSON.stringify(detectedCurrency));
+          console.log("Auto-detected currency:", detectedCurrency);
+        } catch (detectionError) {
+          console.error("Currency detection failed:", detectionError);
+          // Keep default INR currency
+        }
+      }
+    } catch (error) {
+      console.error("Currency initialization failed:", error);
+      // Keep default INR currency
     }
   }, []);
 
@@ -202,6 +280,33 @@ function App() {
     }
   };
 
+  // Currency handlers
+  const handleCurrencySelect = (currency) => {
+    setCurrentCurrency(currency);
+    localStorage.setItem("selectedCurrency", JSON.stringify(currency));
+  };
+
+  const openCurrencyModal = () => {
+    setShowCurrencyModal(true);
+  };
+
+  // Handle no attachments modal
+  const handleNoAttachmentsConfirm = () => {
+    setShowNoAttachmentsModal(false);
+    // Proceed with PDF generation without attachments
+    setFileName(
+      reportTitle.replace(/\s+/g, "_") +
+        "_" +
+        new Date().toISOString().split("T")[0]
+    );
+    setShowFileNameDialog(true);
+  };
+
+  const handleNoAttachmentsCancel = () => {
+    setShowNoAttachmentsModal(false);
+    // User can add attachments if they want
+  };
+
 
   // Clear all data and start fresh
   const clearAllData = () => {
@@ -210,6 +315,8 @@ function App() {
 
   // Confirm clear all data
   const confirmClearAllData = () => {
+    const newSessionId = generateSessionId();
+    setSessionId(newSessionId);
     setBills([]);
     setReportTitle("Monthly Bill Report");
     setShowDateRange(false);
@@ -217,6 +324,7 @@ function App() {
     setSelectedFiles([]);
     setSortConfig({ field: null, direction: null });
     localStorage.removeItem("billReportAutoSave");
+    console.log("Data cleared - new session ID:", newSessionId);
   };
 
   // File upload handlers
@@ -248,11 +356,27 @@ function App() {
   };
 
 
-  // Save current state to history (localStorage only)
-  const saveToHistoryData = (filename) => {
+  // Save current state to history manually
+  const saveToHistoryData = () => {
+    // Check if current session already exists in history
+    const existingItem = historyData.find(item => item.sessionId === sessionId);
+    
+    if (existingItem) {
+      // Show confirmation modal for existing session
+      setExistingSaveItem(existingItem);
+      setShowSaveConfirmModal(true);
+    } else {
+      // Show normal save modal for new session
+      setShowSaveModal(true);
+    }
+  };
+
+  // Handle manual save from modal
+  const handleManualSave = (filename) => {
     const timestamp = new Date().toISOString();
     const historyItem = {
-      id: timestamp,
+      id: generateHistoryId(),
+      sessionId,
       filename,
       timestamp,
       reportTitle,
@@ -262,11 +386,83 @@ function App() {
       // selectedFiles excluded from history - don't save attachments
       sortConfig: { ...sortConfig },
       selectableOptions: [...selectableOptions],
+      currentCurrency: { ...currentCurrency },
     };
 
     const updatedHistory = saveToHistory(historyItem, historyData);
     setHistoryData(updatedHistory);
     return historyItem;
+  };
+
+  // Handle updating existing save
+  const handleUpdateExistingSave = () => {
+    if (existingSaveItem) {
+      const timestamp = new Date().toISOString();
+      const updatedHistoryItem = {
+        ...existingSaveItem,
+        timestamp,
+        reportTitle,
+        showDateRange,
+        isSelectableMode,
+        bills: [...bills],
+        sortConfig: { ...sortConfig },
+        selectableOptions: [...selectableOptions],
+        currentCurrency: { ...currentCurrency },
+      };
+
+      const updatedHistory = saveToHistory(updatedHistoryItem, historyData);
+      setHistoryData(updatedHistory);
+      setShowSaveConfirmModal(false);
+      setExistingSaveItem(null);
+    }
+  };
+
+  // Handle creating new save (generate new session ID)
+  const handleCreateNewSave = () => {
+    const newSessionId = generateSessionId();
+    setSessionId(newSessionId);
+    setShowSaveConfirmModal(false);
+    setExistingSaveItem(null);
+    // Show save modal for new session
+    setTimeout(() => setShowSaveModal(true), 100);
+  };
+
+  // Handle save confirmation modal close
+  const handleSaveConfirmClose = () => {
+    setShowSaveConfirmModal(false);
+    setExistingSaveItem(null);
+  };
+
+  // Check if current session is already saved
+  const isSessionSaved = () => {
+    return historyData.some(item => item.sessionId === sessionId);
+  };
+
+  // Save to history with filename for PDF generation (separate from manual save)
+  const saveToHistoryWithFilename = (filename) => {
+    // Only save if session is not already in history
+    if (!isSessionSaved()) {
+      const timestamp = new Date().toISOString();
+      const historyItem = {
+        id: generateHistoryId(),
+        sessionId,
+        filename,
+        timestamp,
+        reportTitle,
+        showDateRange,
+        isSelectableMode,
+        bills: [...bills],
+        // selectedFiles excluded from history - don't save attachments
+        sortConfig: { ...sortConfig },
+        selectableOptions: [...selectableOptions],
+        currentCurrency: { ...currentCurrency },
+      };
+
+      const updatedHistory = saveToHistory(historyItem, historyData);
+      setHistoryData(updatedHistory);
+      return historyItem;
+    }
+    return null;
   };
 
   // Download JSON file for a history item
@@ -290,6 +486,7 @@ function App() {
 
   // Load state from history
   const loadFromHistory = (historyItem) => {
+    setSessionId(historyItem.sessionId || historyItem.id); // Use sessionId if available, fallback to id for backward compatibility
     setBills(historyItem.bills);
     setReportTitle(historyItem.reportTitle);
     setShowDateRange(historyItem.showDateRange);
@@ -299,7 +496,20 @@ function App() {
     if (historyItem.selectableOptions) {
       setSelectableOptions(historyItem.selectableOptions);
     }
+    
+    // Load currency from history data, or detect from browser if not found
+    if (historyItem.currentCurrency) {
+      setCurrentCurrency(historyItem.currentCurrency);
+      localStorage.setItem("selectedCurrency", JSON.stringify(historyItem.currentCurrency));
+    } else {
+      const detectedCurrency = detectCurrencyFromBrowser();
+      setCurrentCurrency(detectedCurrency);
+      localStorage.setItem("selectedCurrency", JSON.stringify(detectedCurrency));
+      console.log("No currency in history, auto-detected:", detectedCurrency);
+    }
+    
     setShowHistoryPopup(false);
+    console.log("Loaded from history, sessionId:", historyItem.sessionId || historyItem.id);
   };
 
   // Delete history item
@@ -319,20 +529,21 @@ function App() {
         const jsonData = JSON.parse(e.target.result);
 
         if (jsonData.bills && Array.isArray(jsonData.bills)) {
-          setBills(jsonData.bills || []);
-          setReportTitle(jsonData.reportTitle || "Monthly Bill Report");
-          setShowDateRange(jsonData.showDateRange || false);
-          setIsSelectableMode(jsonData.isSelectableMode || false);
-          // selectedFiles not loaded from JSON - start with no attachments
-          setSortConfig(
-            jsonData.sortConfig || { field: null, direction: null }
-          );
-          if (jsonData.selectableOptions) {
-            setSelectableOptions(jsonData.selectableOptions);
+          // Check if sessionId already exists in history
+          const existingItem = jsonData.sessionId ? 
+            historyData.find(item => item.sessionId === jsonData.sessionId) : null;
+          
+          if (existingItem) {
+            // Show duplicate modal
+            setDuplicateItem(existingItem);
+            setPendingJsonData(jsonData);
+            setShowDuplicateModal(true);
+            setShowLoadJSONDialog(false);
+          } else {
+            // Load directly if no duplicate
+            loadJsonData(jsonData);
+            setShowLoadJSONDialog(false);
           }
-
-          setShowLoadJSONDialog(false);
-          alert("JSON file loaded successfully!");
         } else {
           alert(
             "Invalid JSON file format. Please select a valid bill report JSON file."
@@ -348,6 +559,51 @@ function App() {
 
     reader.readAsText(file);
     event.target.value = "";
+  };
+
+  // Load JSON data into state
+  const loadJsonData = (jsonData) => {
+    setSessionId(jsonData.sessionId || generateSessionId());
+    setBills(jsonData.bills || []);
+    setReportTitle(jsonData.reportTitle || "Monthly Bill Report");
+    setShowDateRange(jsonData.showDateRange || false);
+    setIsSelectableMode(jsonData.isSelectableMode || false);
+    setSortConfig(
+      jsonData.sortConfig || { field: null, direction: null }
+    );
+    if (jsonData.selectableOptions) {
+      setSelectableOptions(jsonData.selectableOptions);
+    }
+    
+    // Load currency from JSON data, or detect from browser if not found
+    if (jsonData.currentCurrency) {
+      setCurrentCurrency(jsonData.currentCurrency);
+      localStorage.setItem("selectedCurrency", JSON.stringify(jsonData.currentCurrency));
+    } else {
+      const detectedCurrency = detectCurrencyFromBrowser();
+      setCurrentCurrency(detectedCurrency);
+      localStorage.setItem("selectedCurrency", JSON.stringify(detectedCurrency));
+      console.log("No currency in JSON, auto-detected:", detectedCurrency);
+    }
+    
+    console.log("Loaded from JSON, sessionId:", jsonData.sessionId || "generated new");
+  };
+
+  // Handle duplicate session confirmation
+  const handleDuplicateConfirm = () => {
+    if (pendingJsonData) {
+      loadJsonData(pendingJsonData);
+      setPendingJsonData(null);
+    }
+    setShowDuplicateModal(false);
+    setDuplicateItem(null);
+  };
+
+  // Handle duplicate session cancellation
+  const handleDuplicateCancel = () => {
+    setPendingJsonData(null);
+    setShowDuplicateModal(false);
+    setDuplicateItem(null);
   };
 
   const getTotalAmount = () => {
@@ -384,12 +640,20 @@ function App() {
 
   const addNewBill = () => {
     const newBill = {
-      id: Date.now(),
+      id: generateBillId(),
       title: isSelectableMode ? selectableOptions[0].label : "New Bill",
       date: getNextBillDate(),
       amount: isSelectableMode ? selectableOptions[0].amount : 0,
     };
-    setBills([...bills, newBill]);
+    setBills([newBill,...bills]);
+    
+    // Auto scroll to bottom after adding new bill
+    setTimeout(() => {
+      window.scrollTo({
+        top: document.documentElement.scrollHeight,
+        behavior: 'smooth'
+      });
+    }, 100);
   };
 
   const handleSelectableModeChange = (checked) => {
@@ -488,7 +752,14 @@ function App() {
   };
 
   const generatePDF = async () => {
+    // Always show image selector popup
     setShowImagePopup(true);
+  };
+
+  // Handle no attachments from ImageSelector
+  const handleNoAttachmentsFromSelector = () => {
+    setShowImagePopup(false);
+    setShowNoAttachmentsModal(true);
   };
 
   const handleCreatePDF = () => {
@@ -514,15 +785,20 @@ function App() {
       getTotalAmount
     );
 
-    saveToHistoryData(fileName);
+    saveToHistoryWithFilename(fileName);
     setShowFileNameDialog(false);
     setFileName("");
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors duration-300">
+    <div className="min-h-screen bg-backgroundColor dark:bg-backgroundDarkColor transition-colors duration-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <Header darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
+        <Header 
+          darkMode={darkMode} 
+          toggleDarkMode={toggleDarkMode}
+          currentCurrency={currentCurrency}
+          onCurrencyClick={openCurrencyModal}
+        />
 
         <div className="space-y-8">
           <ReportSettings
@@ -539,6 +815,7 @@ function App() {
             generatePDF={generatePDF}
             showSessionRestored={showSessionRestored}
             clearAllData={clearAllData}
+            saveToHistory={saveToHistoryData}
           />
 
           <BillTable
@@ -550,6 +827,7 @@ function App() {
             getTotalAmount={getTotalAmount}
             isSelectableMode={isSelectableMode}
             selectableOptions={selectableOptions}
+            currentCurrency={currentCurrency}
           />
         </div>
       </div>
@@ -563,6 +841,7 @@ function App() {
         onDragEnd={onDragEnd}
         setFullScreenImage={setFullScreenImage}
         handleCreatePDF={handleCreatePDF}
+        onNoAttachments={handleNoAttachmentsFromSelector}
       />
 
       <ConfirmSelectableModeModal
@@ -591,6 +870,7 @@ function App() {
         loadFromHistory={loadFromHistory}
         downloadJSON={downloadJSON}
         deleteHistoryItem={deleteHistoryItem}
+        currentCurrency={currentCurrency}
       />
 
       <OptionsManagerModal
@@ -625,6 +905,43 @@ function App() {
         billsUsingOption={optionToRemove ? bills.filter((bill) => bill.title === optionToRemove.label).length : 0}
         confirmRemoveOption={confirmRemoveSelectableOption}
         isLastOption={selectableOptions.length <= 1}
+      />
+
+      <SaveModal
+        isOpen={showSaveModal}
+        onClose={() => setShowSaveModal(false)}
+        onSave={handleManualSave}
+        defaultFilename={reportTitle.replace(/\s+/g, "_") + "_" + new Date().toISOString().split("T")[0]}
+      />
+
+      <DuplicateSessionModal
+        isOpen={showDuplicateModal}
+        onClose={() => setShowDuplicateModal(false)}
+        onModify={handleDuplicateConfirm}
+        onCancel={handleDuplicateCancel}
+        existingItem={duplicateItem}
+      />
+
+      <SaveConfirmationModal
+        isOpen={showSaveConfirmModal}
+        onClose={handleSaveConfirmClose}
+        onModifyExisting={handleUpdateExistingSave}
+        onCreateNew={handleCreateNewSave}
+        existingItem={existingSaveItem}
+      />
+
+      <CurrencyModal
+        isOpen={showCurrencyModal}
+        onClose={() => setShowCurrencyModal(false)}
+        onSelect={handleCurrencySelect}
+        currentCurrency={currentCurrency}
+      />
+
+      <NoAttachmentsModal
+        isOpen={showNoAttachmentsModal}
+        onClose={() => setShowNoAttachmentsModal(false)}
+        onConfirm={handleNoAttachmentsConfirm}
+        onCancel={handleNoAttachmentsCancel}
       />
 
       <Footer />

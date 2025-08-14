@@ -1,5 +1,6 @@
 import React from 'react';
 import { Sun, Moon } from 'lucide-react';
+import CurrencySelector from './CurrencySelector';
 
 const BillForgeLogo = () => (
   <svg width="48" height="48" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
@@ -70,9 +71,9 @@ const BillForgeLogo = () => (
   </svg>
 );
 
-const Header = ({ darkMode, toggleDarkMode }) => {
+const Header = ({ darkMode, toggleDarkMode, currentCurrency, onCurrencyClick }) => {
   return (
-    <header className="bg-gradient-to-br from-sky-600 via-sky-700 to-blue-800 dark:from-gray-800 dark:via-gray-700 dark:to-gray-600 rounded-md shadow-2xl mb-8 overflow-hidden relative">
+    <header className="bg-gradient-to-br from-accentBackgroundColor via-sky-700 to-accentBackgroundColor dark:from-gray-800 dark:via-accentBackgroundColor dark:to-gray-600 rounded-md shadow-2xl mb-8 overflow-hidden relative">
       <div className="absolute inset-0 bg-gradient-to-r from-sky-600/20 to-blue-600/20 dark:from-sky-400/10 dark:to-blue-400/10"></div>
       <div className="relative px-8 py-12">
         <div className="flex items-center justify-between">
@@ -90,6 +91,13 @@ const Header = ({ darkMode, toggleDarkMode }) => {
             </div>
           </div>
           <div className="flex items-center space-x-3">
+            {currentCurrency && (
+              <CurrencySelector
+                currentCurrency={currentCurrency}
+                onClick={onCurrencyClick}
+                className="bg-white/20 dark:bg-white/10 hover:bg-white/30 dark:hover:bg-white/20 backdrop-blur-sm hover:scale-105 text-white"
+              />
+            )}
             <button
               onClick={toggleDarkMode}
               className="p-3 bg-white/20 dark:bg-white/10 hover:bg-white/30 dark:hover:bg-white/20 rounded-md backdrop-blur-sm transition-all duration-200 text-white hover:scale-105"

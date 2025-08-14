@@ -18,21 +18,28 @@ const BillTable = ({
   getTotalAmount,
   isSelectableMode,
   selectableOptions,
+  currentCurrency = { symbol: '₹', code: 'INR', name: 'Indian Rupee' },
 }) => {
   return (
     <div className="table-section">
-      <div className="table-card">
-        <div className="card-header">
-          <FileText size={20} />
-          <h3>Bill Management</h3>
-          <div className="table-stats">
-            <span className="stat-item">
-              {sortedBills.length} bills • Total: ₹{getTotalAmount()}
+      <div className="card animate-slide-up">
+        <div className="flex items-center justify-between p-6 border-b border-accentBackgroundColor/40 dark:border-accentBackgroundColor/40">
+          <div className="flex items-center space-x-3">
+            <div className="p-2 bg-accentBackgroundColor/20 rounded-lg">
+              <FileText className="h-5 w-5 text-accentBackgroundColor" />
+            </div>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+              Bill Management
+            </h2>
+          </div>
+          <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+            <span>
+              {sortedBills.length} bills • Total: {currentCurrency.symbol}{getTotalAmount()}
             </span>
           </div>
         </div>
 
-        <div className="table-container">
+        <div className="p-6">
           <table className="bills-table">
             <thead>
               <tr>
@@ -69,7 +76,7 @@ const BillTable = ({
                     onClick={() => handleSort("amount")}
                   >
                     <span className="th-content">
-                      <DollarSign size={16} /> Amount (₹)
+                      <DollarSign size={16} /> Amount ({currentCurrency.symbol})
                       {sortConfig.field === "amount" ? (
                         sortConfig.direction === "asc" ? (
                           <ArrowUp size={14} className="sort-icon" />
@@ -156,7 +163,7 @@ const BillTable = ({
                   </td>
                   <td>
                     <div className="input-wrapper amount-input">
-                      <span className="input-icon">₹</span>
+                      <span className="input-icon">{currentCurrency.symbol}</span>
                       <input
                         type="number"
                         step="0.01"
@@ -189,7 +196,7 @@ const BillTable = ({
                 </td>
                 <td>
                   <div className="total-amount">
-                    <span>₹</span>
+                    <span>{currentCurrency.symbol}</span>
                     <strong>{getTotalAmount()}</strong>
                   </div>
                 </td>

@@ -6,7 +6,11 @@ module.exports = {
   darkMode: 'class',
   theme: {
     extend: {
+      
       colors: {
+        backgroundColor: "#faf5ff",
+        accentBackgroundColor: "#725CAD",
+        backgroundDarkColor: "#141216",
         primary: {
           50: '#eff6ff',
           100: '#dbeafe',
@@ -18,6 +22,7 @@ module.exports = {
           700: '#1d4ed8',
           800: '#1e40af',
           900: '#1e3a8a',
+          
         },
       },
       animation: {

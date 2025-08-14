@@ -3,7 +3,7 @@ import { Heart, Coffee, Github } from 'lucide-react';
 
 const Footer = () => {
   return (
-    <footer className="mt-12 py-8 px-4 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+    <footer className="mt-12 py-8 px-4 bg-white/60 dark:bg-gray-100 dark:bg-opacity-[3%] backdrop-blur-md border-t border-accentBackgroundColor/30 dark:border-accentBackgroundColor/20 rounded-t-md">
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col items-center justify-center space-y-4">
           {/* Main credit */}

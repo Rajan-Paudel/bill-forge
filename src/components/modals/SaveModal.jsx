@@ -1,29 +1,53 @@
-import React from 'react';
-import { Save, X, Download, FileText } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Save, SaveAll } from 'lucide-react';
 
-const FileNameModal = ({
-  showFileNameDialog,
-  setShowFileNameDialog,
-  fileName,
-  setFileName,
-  confirmCreatePDF,
+const SaveModal = ({ 
+  isOpen, 
+  onClose, 
+  onSave, 
+  defaultFilename = "",
+  title = "Save Bill Report"
 }) => {
-  if (!showFileNameDialog) return null;
+  const [filename, setFilename] = useState("");
+
+  useEffect(() => {
+    if (isOpen) {
+      setFilename(defaultFilename);
+    }
+  }, [isOpen, defaultFilename]);
+
+  const handleSave = () => {
+    if (filename.trim()) {
+      onSave(filename.trim());
+      setFilename("");
+      onClose();
+    }
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      handleSave();
+    } else if (e.key === 'Escape') {
+      onClose();
+    }
+  };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm dark:bg-black/70 flex items-center justify-center z-50 p-4">
       <div className="bg-white/70 backdrop-blur-md dark:backdrop-blur-xl dark:bg-white/10 rounded-lg shadow-xl max-w-md w-full">
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-blue-50 dark:bg-blue-900/50 rounded-lg">
-              <Save className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            <div className="p-2 bg-accentBackgroundColor/20 rounded-lg">
+              <SaveAll className="h-5 w-5 text-accentBackgroundColor" />
             </div>
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Save Report
+              {title}
             </h3>
           </div>
           <button
-            onClick={() => setShowFileNameDialog(false)}
+            onClick={onClose}
             className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
           >
             <X className="h-5 w-5 text-gray-500" />
@@ -34,41 +58,35 @@ const FileNameModal = ({
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                <div className="flex items-center space-x-2">
-                  <FileText className="h-4 w-4" />
-                  <span>File Name</span>
-                </div>
+                Enter a name for this save:
               </label>
               <input
                 type="text"
-                value={fileName}
-                onChange={(e) => setFileName(e.target.value)}
-                placeholder="Enter file name..."
+                value={filename}
+                onChange={(e) => setFilename(e.target.value)}
+                onKeyDown={handleKeyPress}
+                placeholder="Enter filename..."
                 className="input-field w-full"
                 autoFocus
               />
             </div>
-            <p className="text-sm text-gray-600 dark:text-gray-300">
-              This will save both a PDF file and a JSON state file for future reference.
-            </p>
           </div>
         </div>
 
         <div className="flex justify-end space-x-3 p-6 border-t border-gray-200 dark:border-gray-700">
           <button
-            onClick={() => setShowFileNameDialog(false)}
+            onClick={onClose}
             className="btn btn-secondary"
           >
-            <X className="h-4 w-4" />
             Cancel
           </button>
           <button
-            onClick={confirmCreatePDF}
-            className="btn btn-success"
-            disabled={!fileName.trim()}
+            onClick={handleSave}
+            disabled={!filename.trim()}
+            className="btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Download className="h-4 w-4" />
-            Download Now
+            <Save className="h-4 w-4" />
+            Save
           </button>
         </div>
       </div>
@@ -76,4 +94,4 @@ const FileNameModal = ({
   );
 };
 
-export default FileNameModal;
+export default SaveModal;

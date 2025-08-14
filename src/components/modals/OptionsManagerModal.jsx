@@ -16,18 +16,22 @@ const OptionsManagerModal = ({
   if (!showOptionsManager) return null;
 
   return (
-    <div className="popup-overlay">
-      <div className="popup modern-popup">
-        <div className="popup-header">
-          <div className="popup-title">
-            <Settings size={24} />
-            <h3>Manage Selectable Options</h3>
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm dark:bg-black/70 flex items-center justify-center z-50 p-4">
+      <div className="bg-white/70 backdrop-blur-md dark:backdrop-blur-xl dark:bg-white/10 rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] flex flex-col">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center space-x-3">
+            <div className="p-2 bg-blue-50 dark:bg-blue-900/50 rounded-lg">
+              <Settings className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Manage Selectable Options
+            </h3>
           </div>
           <button
-            className="close-btn"
             onClick={() => setShowOptionsManager(false)}
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
           >
-            <X size={20} />
+            <X className="h-5 w-5 text-gray-500" />
           </button>
         </div>
 
